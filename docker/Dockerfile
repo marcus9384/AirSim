@@ -7,9 +7,10 @@ ARG GIT_USER=marcus9384
 ARG GIT_PASS=bananas
 
 
-COPY sources.list /etc/apt/sources.list
 RUN apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key 77DCF3C3D260870D
 RUN apt-key adv --keyserver hkp://ha.pool.sks-keyservers.net:80 --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
+
+COPY sources.list /etc/apt/sources.list
 
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
         git \
@@ -25,7 +26,7 @@ RUN git clone https://${GIT_USER}:${GIT_PASS}@github.com/EpicGames/UnrealEngine.
 FROM nvidia/cudagl:10.0-devel-ubuntu16.04
 ENV NVIDIA_DRIVER_CAPABILITIES ${NVIDIA_DRIVER_CAPABILITIES},display
 
-LABEL maintainer="preed@swri.org"
+LABEL maintainer="marc.brooks@swri.org"
 
 ARG UNAME=user
 ARG UID=1000
@@ -72,22 +73,28 @@ RUN useradd -m -u $UID -g $GID -s /bin/bash $UNAME
 RUN chown $UID:$GID /home/$UNAME
 
 
-#Copy Unreal Repo from Intermediate Image
-COPY --from=intermediate --chown=$UNAME:$UNAME UnrealEngine /home/$UNAME/Unreal
-RUN apt-get update && apt-get upgrade -y && ./home/$UNAME/Unreal/Setup.sh && rm -rf /var/lib/apt/lists/*
-
-#Setup for Airsim
-# RUN git clone https://github.com/microsoft/AirSim.git /home/$UNAME/AirSim --progress
-# RUN ./home/$UNAME/AirSim/setup.sh
-# RUN chown -R $UID:$GID /home/$UNAME/AirSim
-
-
-RUN chown -R $UID:$GID /home/$UNAME/Unreal
+# RUN chown -R $UID:$GID /home/$UNAME/Unreal
 
 # Switch to the non-root user and set up the local environment.
 USER $UNAME
 
 # RUN chown -R $UID:$GID /home/$UNAME/.local
+
+#Copy Unreal Repo from Intermediate Image
+COPY --from=intermediate --chown=$UNAME:$UNAME UnrealEngine /home/$UNAME/Unreal
+RUN sudo apt-get update && sudo apt-get upgrade -y && sudo -u $UNAME ./home/$UNAME/Unreal/Setup.sh && sudo rm -rf /var/lib/apt/lists/*
+# Generate and make Unreal Engine
+RUN ./home/$UNAME/Unreal/GenerateProjectFiles.sh
+RUN make -C /home/$UNAME/Unreal
+
+#Setup for Airsim
+RUN git clone https://github.com/microsoft/AirSim.git /home/$UNAME/AirSim --progress
+RUN ./home/$UNAME/AirSim/setup.sh
+# RUN chown -R $UID:$GID /home/$UNAME/AirSim
+# Build Airsim
+#RUN ./home/$UNAME/AirSim/build.sh
+
+
 
 RUN cp /etc/skel/.bash_logout /home/$UNAME/
 RUN cp /etc/skel/.bashrc /home/$UNAME/
@@ -97,11 +104,6 @@ RUN cat /home/$UNAME/bashrc_additions >> /home/$UNAME/.bashrc && rm /home/$UNAME
 COPY .git-prompt.sh /home/$UNAME
 COPY .bash_prompt /home/$UNAME
 
-# Generate and make Unreal Engine
-RUN ./home/$UNAME/Unreal/GenerateProjectFiles.sh
-RUN make -C /home/$UNAME/Unreal
 
-# Build Airsim
-#RUN ./home/$UNAME/AirSim/build.sh
 
 CMD ["/bin/bash"]

@@ -79,8 +79,8 @@ init_file .Xauthority
 
 docker run \
     -it \
-    --gpus=all \
     --cap-add=SYS_PTRACE \
+    --gpus=all \
     --name airsim2-ws \
     -e DISPLAY \
     -v $HOME/Simulators:/home/${UNAME}/src \
@@ -94,6 +94,7 @@ docker run \
     --ipc host \
     ue4-airsim2-ws
 
+#    --gpus=all \
 echo "To restart this container, run:
 sudo docker start -ai airsim2-ws"
 
